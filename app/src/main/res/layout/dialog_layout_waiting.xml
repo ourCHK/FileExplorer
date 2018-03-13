@@ -15,7 +15,7 @@
         tools:layout_editor_absoluteY="39dp" />
 
     <TextView
-        android:text="Waiting"
+        android:text="Searching"
         android:gravity="center"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
