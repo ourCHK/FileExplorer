@@ -4,6 +4,10 @@ import android.app.Dialog;
 import android.content.Context;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.view.Display;
+import android.view.Gravity;
+import android.view.WindowManager;
+import android.widget.TextView;
 
 import com.chk.fileexplorer.Interfaces.OnDialogButtonClickListener;
 import com.chk.fileexplorer.R;
@@ -16,6 +20,7 @@ public class WaitingDialog extends Dialog {
 
     Context mContext;
     int mLayoutId;
+    TextView curPath;
 
     OnDialogButtonClickListener mOnDialogButtonClickListener;
 
@@ -39,6 +44,18 @@ public class WaitingDialog extends Dialog {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.dialog_layout_waiting);
+//        Display display = getWindow().getWindowManager().getDefaultDisplay();
+//        WindowManager.LayoutParams lp = getWindow().getAttributes();
+//        lp.width = display.getWidth(); // 设置dialog宽度为屏幕的4/5
+//        lp.height = display.getHeight();
+//        lp.gravity = Gravity.CENTER;
+//        getWindow().setAttributes(lp);
+
+        curPath = findViewById(R.id.curPath);
+    }
+
+    public void setCurPath(String path) {
+        curPath.setText("curPath:"+path);
     }
 
     public void setOnDialogButtonClickListener(OnDialogButtonClickListener mOnDialogButtonClickListener) {

@@ -13,6 +13,7 @@ import android.support.annotation.NonNull;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.chk.fileexplorer.Dialogs.WaitingDialog;
@@ -31,6 +32,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -39,8 +42,16 @@ public class MainActivity extends BaseActivity {
     static final String TAG = MainActivity.class.getSimpleName();
 
     static final int SEARCH_COMPLETED = 1;
+    static final int STORAGE_ERROR = 2;
+    static final int FILE_SAVE_FAILED = 3;
+    static final int UPDATE_CUR_PATH = 4;
 
     Button startCheck;
+    TextView searchResult;
+    TextView curFile;
+    String curPath;
+
+    Timer timer;
 
     ArrayList<String> mFileList;
     ArrayList<String> mRootPaths;
@@ -72,10 +83,30 @@ public class MainActivity extends BaseActivity {
             public void handleMessage(Message msg) {
                 switch (msg.what) {
                     case SEARCH_COMPLETED:
+                        if (timer != null) {
+                            timer.cancel();
+                            timer = null;
+                        }
+                        curFile.setText("");
                         String newFileName = "/storage/emulated/0/"+FormatLongMillsToString(System.currentTimeMillis())+".txt";
                         tempTextFile.renameTo(new File(newFileName));
+                        searchResult.setText("搜索完成：文件保存路径："+newFileName);
                         Toast.makeText(MainActivity.this, "已保存文件："+newFileName, Toast.LENGTH_SHORT).show();
                         mWaitingDialog.dismiss();
+                        break;
+                    case STORAGE_ERROR:
+                        searchResult.setText("搜索失败：Storage Error");
+                        Toast.makeText(MainActivity.this, "Storage Error", Toast.LENGTH_SHORT).show();
+                        break;
+                    case FILE_SAVE_FAILED:
+                        searchResult.setText("搜索失败：文件保存出错");
+                        Toast.makeText(MainActivity.this, "文件保存失败", Toast.LENGTH_SHORT).show();
+                        break;
+                    case UPDATE_CUR_PATH:
+                        curFile.setText("CurrentFile:"+curPath);
+//                        if (mWaitingDialog != null && mWaitingDialog.isShowing()) {
+//                            mWaitingDialog.setCurPath(curPath);
+//                        }
                         break;
                 }
             }
@@ -92,13 +123,24 @@ public class MainActivity extends BaseActivity {
         startCheck.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                timer = new Timer();
+                timer.schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        mHandler.sendEmptyMessage(UPDATE_CUR_PATH);
+                    }
+                },500,500);
+                searchResult.setText("Searching...");
                 mWaitingDialog.show();
                 mExecutorService.execute(mRunnable);
             }
         });
+
+        searchResult = findViewById(R.id.searchResult);
+        curFile = findViewById(R.id.curFile);
     }
 
-    void dataInit() {
+    void fileInit() {
         tempTextFile = new File(tempPath);
         if (tempTextFile.exists()) {
             tempTextFile.delete();
@@ -108,15 +150,21 @@ public class MainActivity extends BaseActivity {
                 mFileOutputStream = new FileOutputStream(tempTextFile);
                 mOutputStreamWriter = new OutputStreamWriter(mFileOutputStream);
             } catch (IOException e) {
-                Toast.makeText(this, "storage error!", Toast.LENGTH_SHORT).show();
+                mHandler.sendEmptyMessage(STORAGE_ERROR);
                 e.printStackTrace();
             }
         }
+    }
+
+    void dataInit() {
+
+
 
         mExecutorService = Executors.newCachedThreadPool();
         mRunnable = new Runnable() {
             @Override
             public void run() {
+                fileInit();
                 for (String path:mRootPaths) {
                     openFolder(path);
                 }
@@ -125,7 +173,7 @@ public class MainActivity extends BaseActivity {
                     mOutputStreamWriter.close();
                 } catch (IOException e) {
                     e.printStackTrace();
-                    Toast.makeText(MainActivity.this, "文本保存失败", Toast.LENGTH_SHORT).show();
+                    mHandler.sendEmptyMessage(FILE_SAVE_FAILED);
                 }
                 mHandler.sendEmptyMessage(SEARCH_COMPLETED);
             }
@@ -225,13 +273,15 @@ public class MainActivity extends BaseActivity {
         List<File> fileList = new ArrayList<>(Arrays.asList(files));
         Collections.sort(fileList,new SortByName());
         for (File tempFile:fileList) {
+
             if (tempFile.isDirectory()) {
+                curPath = tempFile.getAbsolutePath();
                 String info = tempFile.getAbsolutePath()+"  文件夹大小："+ FormatFileSize(getFilesSize(tempFile.getAbsolutePath()))+"\n";
                 try {
                     mOutputStreamWriter.write(info);
                 } catch (IOException e) {
                     e.printStackTrace();
-                    Toast.makeText(this, "storage error!", Toast.LENGTH_SHORT).show();
+                    mHandler.sendEmptyMessage(STORAGE_ERROR);
                     return;
                 }
                 Log.i(TAG,info);
